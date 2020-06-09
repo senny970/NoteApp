@@ -16,6 +16,7 @@ import android.support.annotation.NonNull;
 public abstract class NoteDatabase extends RoomDatabase {
     private static NoteDatabase instance;
     public abstract NoteDao noteDao();
+	
     public static synchronized NoteDatabase getInstance(Context context) {
         if (instance == null) {
             instance = Room.databaseBuilder(context.getApplicationContext(),
@@ -26,6 +27,7 @@ public abstract class NoteDatabase extends RoomDatabase {
         }
         return instance;
     }
+	
     private static RoomDatabase.Callback roomCallback = new RoomDatabase.Callback() {
         @Override
         public void onCreate(@NonNull SupportSQLiteDatabase db) {
