@@ -26,7 +26,8 @@ public interface NoteDao {
     //@Query("SELECT * FROM note_table ORDER BY priority DESC")
     @Query("SELECT * FROM note_table")
     LiveData<List<Note>> getAllNotes();
-
     @Query("SELECT * FROM note_table")
     List<Note> getAll();
+    @Query("SELECT COUNT(*) FROM note_table")
+    LiveData<Integer> getCount();
 }

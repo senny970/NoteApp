@@ -39,8 +39,8 @@ public class NotificationHelper  extends ContextWrapper{
 		
         public NotificationCompat.Builder getChannelNotification() {
             return new NotificationCompat.Builder(getApplicationContext(), channelID)
-                    .setContentTitle("Alarm!")
-                    .setContentText("Note date format has been changed!")
+                    .setContentTitle("Внимание!")
+                    .setContentText("Формат даты создания заметок - был изменен!")
                     .setSmallIcon(R.drawable.ic_close);
         }
 }

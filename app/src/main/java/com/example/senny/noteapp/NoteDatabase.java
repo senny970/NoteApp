@@ -45,11 +45,15 @@ public abstract class NoteDatabase extends RoomDatabase {
 
         @Override
         protected Void doInBackground(Void... voids) {
-            timeUtils = new TimeUtils();
+            //timeUtils = new TimeUtils();
 
-            noteDao.insert(new Note("Новая заметка 1", "", "00.00.0000", "00:00", "00:00"));
-            noteDao.insert(new Note("Новая заметка 2", "", "00.00.0000", "00:00", "00:00"));
-            noteDao.insert(new Note("Новая заметка 3", "", "00.00.0000", "00:00", "00:00"));
+            //String date = timeUtils.GetCurrentDate();
+            //String time = timeUtils.GetCurrentTime();
+
+            //noteDao.insert(new Note("Новая заметка 1", "", date, time, time));
+            //noteDao.insert(new Note("Новая заметка 2", "", date, time, time));
+            //noteDao.insert(new Note("Новая заметка 3", "", date, time, time));
+
             return null;
         }
     }

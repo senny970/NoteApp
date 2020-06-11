@@ -19,22 +19,51 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 import java.util.List;
 import android.app.AlarmManager;
 import java.util.Calendar;
+import java.util.Random;
 import android.app.PendingIntent;
 import android.content.Context;
+import android.os.CountDownTimer;
+import android.content.SharedPreferences;
+import android.os.AsyncTask;
+import android.net.ConnectivityManager;
 
 public class MainActivity extends AppCompatActivity {
     public static final int ADD_NOTE_REQUEST = 1;
     public static final int EDIT_NOTE_REQUEST = 2;
     private NoteViewModel noteViewModel;
+    private TimeUtils timeUtils;
+    CountDownTimer cTimer = null;
+    SharedPreferences prefs = null;
+    private static MainActivity instance;
+    ProgressBar progress_horizontal;
+    int progrss = 0;
+    boolean isFirst = false;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        prefs = getSharedPreferences("com.example.senny.noteapp", MODE_PRIVATE);
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+        timeUtils = new TimeUtils();
+        instance = this;
+
+        if (prefs.getBoolean("firstrun", true)) {
+            isFirst = true;
+            progressBar.setVisibility(View.VISIBLE);
+            SendFakeRequest();
+            prefs.edit().putBoolean("firstrun", false).commit();
+        }
+
+        if(!isFirst) {
+            new fakeRefreshNotesTask().execute();
+        }
 
         setTitle("Заметки");
 
@@ -58,22 +87,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         RecyclerView recyclerView = findViewById(R.id.recycler_view);
-        TextView emptyView = findViewById(R.id.empty_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setHasFixedSize(true);
         final NoteAdapter adapter = new NoteAdapter();
         recyclerView.setAdapter(adapter);
-
-        /*if(adapter.getItemCount()==0) {
-            recyclerView.setVisibility(View.GONE);
-            emptyView.setVisibility(View.VISIBLE);
-        }
-        else{
-            recyclerView.setVisibility(View.VISIBLE);
-            emptyView.setVisibility(View.GONE);
-        }*/
-
-        //Toast.makeText(MainActivity.this, String.valueOf(adapter.getItemCount()) , Toast.LENGTH_SHORT).show();
 
         noteViewModel = ViewModelProviders.of(this).get(NoteViewModel.class);
         noteViewModel.getAllNotes().observe(this, new Observer<List<Note>>() {
@@ -82,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
                 adapter.setNotes(notes);
             }
         });
-		
+
         new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0,
                 ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
             @Override
@@ -95,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Заметка удалена!", Toast.LENGTH_SHORT).show();
             }
         }).attachToRecyclerView(recyclerView);
+
         adapter.setOnItemClickListener(new NoteAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(Note note) {
@@ -106,6 +124,13 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, EDIT_NOTE_REQUEST);
             }
         });
+
+        noteViewModel.getCount().observe(this, new Observer<Integer>() {
+            @Override
+            public void onChanged(@Nullable Integer integer) {
+            }
+        });
+
     }
 
     @Override
@@ -123,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (requestCode == EDIT_NOTE_REQUEST && resultCode == RESULT_OK) {
             int id = data.getIntExtra(AddEditNoteActivity.EXTRA_ID, -1);
             if (id == -1) {
-                Toast.makeText(this, "Note can't be updated", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Замеетка не может быть обновлена!", Toast.LENGTH_SHORT).show();
                 return;
             }
             String title = data.getStringExtra(AddEditNoteActivity.EXTRA_TITLE);
@@ -136,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
             noteViewModel.update(note);
             Toast.makeText(this, "Заметка обновлена", Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "Note not saved", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Заметка не сохранена!", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -169,10 +194,120 @@ public class MainActivity extends AppCompatActivity {
         alarmManager.setExact(AlarmManager.RTC_WAKEUP, c.getTimeInMillis(), pendingIntent);
     }
 
-    /*private void cancelAlarm() {
+    private void cancelAlarm() {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(this, ChangeNoteDateFormat.class);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 1, intent, 0);
         alarmManager.cancel(pendingIntent);
-    }*/
+    }
+
+    void SendFakeRequest() {
+        if(!isNetworkConnected()) {
+            TextView noInternet = findViewById(R.id.no_internet);
+            ProgressBar progressBar = findViewById(R.id.progressBar);
+
+            progressBar.setVisibility(View.GONE);
+            noInternet.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        cTimer = new CountDownTimer(8000, 1000) {
+            public void onTick(long millisUntilFinished) {
+                //Toast.makeText(MainActivity.this, "seconds remaining: " + String.valueOf(millisUntilFinished / 1000), Toast.LENGTH_SHORT).show();
+            }
+
+            public void onFinish() {
+                // - таймер почему то заканчиваеться раньше
+                // - поэтому на счет компенсации вместо 5 сек, ставлю 8
+                gettingFakeAnswer();
+                //Toast.makeText(MainActivity.this, "Timer finish!", Toast.LENGTH_SHORT).show();
+            }
+        };
+        cTimer.start();
+    }
+
+    void gettingFakeAnswer(){
+        String date = timeUtils.GetCurrentDate();
+        String time = timeUtils.GetCurrentTime();
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+
+        cancelTimer();
+        progressBar.setVisibility(View.GONE);
+        noteViewModel.insert(new Note("Новая заметка 1", "", date, time, time));
+        noteViewModel.insert(new Note("Новая заметка 2", "", date, time, time));
+        noteViewModel.insert(new Note("Новая заметка 3", "", date, time, time));
+    }
+
+    void cancelTimer() {
+        if(cTimer!=null)
+            cTimer.cancel();
+    }
+
+    public static MainActivity  getInstace(){
+        return instance;
+    }
+
+    void onConnectionLose(){
+        if (!isFirst) return;
+
+        TextView noInternet = findViewById(R.id.no_internet);
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+
+        cancelTimer();
+        progressBar.setVisibility(View.GONE);
+        noInternet.setVisibility(View.VISIBLE);
+    }
+
+    void onConnectionRestored(){
+        if (!isFirst) return;
+
+        TextView noInternet = findViewById(R.id.no_internet);
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+
+        SendFakeRequest();
+        progressBar.setVisibility(View.VISIBLE);
+        noInternet.setVisibility(View.GONE);
+    }
+
+    private static class fakeRefreshNotesTask extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected void onPreExecute() {
+            // Отключить касание?
+            /*MainActivity.getInstace().getWindow().setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);*/
+            super.onPreExecute();
+        }
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            MainActivity.getInstace().progress_horizontal = (ProgressBar) MainActivity.getInstace().findViewById(R.id.progressBar_horizontal);
+            final Random random = new Random();
+
+            try {
+                for(int i=0; i<100; i++){
+                    MainActivity.getInstace().progrss = MainActivity.getInstace().progrss + random.nextInt(10-0);
+                    MainActivity.getInstace().progrss = MainActivity.getInstace().progrss+i;
+                    MainActivity.getInstace().progress_horizontal.setProgress(MainActivity.getInstace().progrss);
+                    if(MainActivity.getInstace().progrss>=100) break;
+                    Thread.sleep(500);
+                }
+            }
+            catch (Exception e){}
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(final Void result) {
+            //MainActivity.getInstace().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+            super.onPostExecute(result);
+            MainActivity.getInstace().progress_horizontal.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    private boolean isNetworkConnected() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        return cm.getActiveNetworkInfo() != null && cm.getActiveNetworkInfo().isConnected();
+    }
 }
